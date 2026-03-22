@@ -377,18 +377,18 @@
 <body>
 
 <!-- Loading -->
-<div id="loading"><div class="spinner"></div></div>
+<div id="loading" style="display:none"><div class="spinner"></div></div>
 
 <!-- Auth Screen -->
-<div id="auth-screen" style="display:none">
+<div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">
       <div class="auth-logo-icon">🏢</div>
       <div class="auth-logo-name">TeamFlow</div>
     </div>
     <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Sign In</button>
-      <button class="auth-tab" onclick="switchAuthTab('register',this)">Register</button>
+      <button class="auth-tab active" id="tab-login">Sign In</button>
+      <button class="auth-tab" id="tab-register">Register</button>
     </div>
 
     <!-- Login Form -->
@@ -398,7 +398,7 @@
         Continue with Google
       </button>
       <div class="auth-divider">or with email</div>
-      <form id="login-form" onsubmit="handleLogin(event)">
+      <form id="login-form">
         <div class="fg"><label>Email</label><input type="email" class="fc" id="li-email" placeholder="you@company.com" required></div>
         <div class="fg">
           <label>Password</label>
@@ -411,7 +411,7 @@
 
     <!-- Register Form -->
     <div id="register-form-wrap" style="display:none">
-      <form id="reg-form" onsubmit="handleRegister(event)">
+      <form id="reg-form">
         <div class="fg"><label>Full Name</label><input type="text" class="fc" id="rg-name" placeholder="Jane Smith" required></div>
         <div class="fg"><label>Email</label><input type="email" class="fc" id="rg-email" placeholder="you@company.com" required></div>
         <div class="fg">
@@ -424,6 +424,13 @@
           <div class="pw"><input type="password" class="fc" id="rg-cpw" placeholder="Repeat password" required></div>
         </div>
         <div class="ferr mb14" id="rg-err"></div>
+        <div id="rg-hint" style="display:none;background:rgba(79,124,255,.08);border:1px solid rgba(79,124,255,.25);border-radius:8px;padding:12px;font-size:12px;color:#8892aa;margin-bottom:12px;line-height:1.7">
+          <strong style="color:#e6eaf6">To enable registration, do this in Firebase Console:</strong><br>
+          1. Go to <strong>Authentication</strong> → <strong>Sign-in method</strong><br>
+          2. Enable <strong>Email/Password</strong><br>
+          3. Go to <strong>Firestore Database</strong> → Create database<br>
+          4. Set rules to <strong>test mode</strong> (allow read/write for 30 days)
+        </div>
         <button type="submit" class="btn btn-p wfull" id="rg-btn">Create Account</button>
       </form>
       <div id="rg-success" style="display:none;background:var(--greenD);border:1px solid rgba(34,197,94,.3);border-radius:var(--rs);padding:14px;font-size:13px;color:var(--green)">
@@ -862,9 +869,31 @@
 <!-- Toast container -->
 <div id="toasts"></div>
 
+
+<script>
+// Pre-define all functions called from HTML onclick attributes
+// so they work even before the module finishes loading.
+// The module will overwrite these with the real implementations.
+['switchAuthTab','handleLogin','handleRegister','doLogout','goto',
+ 'checkStr','togglePw','doClock','setTaskView','renderTasks',
+ 'openTaskModal','closeTaskModal','submitTask','deleteTask',
+ 'openDetail','closeDetail','postComment','updateDetailStatus',
+ 'attachFile','renderTeam','openMemberPanel','closePanel',
+ 'renderCal','calPrev','calNext','handleFiles','setFileView',
+ 'renderFiles','delFile','setNotifFilter','handleNotif','markAllRead',
+ 'switchAdminTab','renderAdminUsers','openEditUser','closeEditUser',
+ 'saveEditUser','toggleUser','handleAnnouncement','renderActivity',
+ 'saveProfile','changePassword','uploadAvatar','renderAttLog'
+].forEach(fn => {
+  window[fn] = window[fn] || function() {
+    // Queue the call until module loads
+    window._pendingCalls = window._pendingCalls || [];
+    window._pendingCalls.push([fn, arguments]);
+  };
+});
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-analytics.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, GoogleAuthProvider, signInWithPopup, sendEmailVerification,
@@ -879,20 +908,39 @@ import {
   getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject
 } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
-// ── Firebase Init ─────────────────────────────────────
-const app = initializeApp({
-  apiKey:"AIzaSyC_4xRUwXgSsG_esFppxRcjeEjNYlX3b8A",
-  authDomain:"project-facc8b08-c60f-410f-a49.firebaseapp.com",
-  projectId:"project-facc8b08-c60f-410f-a49",
-  storageBucket:"project-facc8b08-c60f-410f-a49.firebasestorage.app",
-  messagingSenderId:"88370192950",
-  appId:"1:88370192950:web:6b09d0821d6158eec22e97",
-  measurementId:"G-H6VTNB9DK5"
-});
-const analytics = getAnalytics(app);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// ── Firebase Config ────────────────────────────────────
+// Paste your own Firebase config object here.
+// Get it from: Firebase Console → Project Settings → Your Apps → SDK setup
+const firebaseConfig = {
+  apiKey:            "AIzaSyC_4xRUwXgSsG_esFppxRcjeEjNYlX3b8A",
+  authDomain:        "project-facc8b08-c60f-410f-a49.firebaseapp.com",
+  projectId:         "project-facc8b08-c60f-410f-a49",
+  storageBucket:     "project-facc8b08-c60f-410f-a49.firebasestorage.app",
+  messagingSenderId: "88370192950",
+  appId:             "1:88370192950:web:6b09d0821d6158eec22e97",
+  measurementId:     "G-H6VTNB9DK5"
+};
+
+// Detect placeholder config — show setup notice instead of infinite spinner
+const _isConfigured = !Object.values(firebaseConfig).some(v => String(v).startsWith('YOUR_'));
+if (!_isConfigured) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  const _card = document.querySelector('.auth-card');
+  if (_card) _card.insertAdjacentHTML('afterbegin', `<div style="background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.4);border-radius:10px;padding:14px 16px;margin-bottom:22px;font-size:13px;line-height:1.6"><div style="font-weight:700;color:#f5a623;margin-bottom:5px">&#x2699;&#xfe0f; Firebase setup required</div><div style="color:#8892aa">Edit this file and replace the <code style="background:#1e212c;padding:1px 5px;border-radius:4px;font-size:11px">YOUR_*</code> placeholders in <strong>firebaseConfig</strong> with your real credentials from the <a href="https://console.firebase.google.com" target="_blank" style="color:#4f7cff">Firebase Console</a>.</div></div>`);
+  throw new Error('Firebase config not configured.');
+}
+
+const app     = initializeApp(firebaseConfig);
+const auth    = getAuth(app);
+const db      = getFirestore(app);
 const storage = getStorage(app);
+
+// Fallback: if onAuthStateChanged never fires, escape the loading screen
+const _authTimeout = setTimeout(() => {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}, 3000);
 
 // ── State ─────────────────────────────────────────────
 let CU = null;  // current Firebase user
@@ -905,6 +953,7 @@ const PAGES = {dashboard:'Dashboard',tasks:'Tasks',team:'Team',calendar:'Calenda
 
 // ── Auth Init ─────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
+  clearTimeout(_authTimeout);
   if (user) {
     CU = user;
     const snap = await getDoc(doc(db,'users',user.uid));
@@ -941,13 +990,14 @@ window.switchAuthTab = (t, btn) => {
 window.handleLogin = async e => {
   e.preventDefault();
   const email=document.getElementById('li-email').value.trim(), pw=document.getElementById('li-pw').value;
-  const btn=document.getElementById('li-btn'); btn.textContent='Signing in...'; btn.disabled=true;
+  const btn=document.getElementById('li-btn'); btn.textContent='Signing in...'; btn.disabled=true; document.getElementById('loading').style.display='flex';
   document.getElementById('li-err').textContent='';
   try {
     await signInWithEmailAndPassword(auth,email,pw);
   } catch(err) {
-    document.getElementById('li-err').textContent=authErr(err.code);
-    btn.textContent='Sign In'; btn.disabled=false;
+    console.error('Login error:', err.code, err.message);
+    document.getElementById('li-err').textContent = authErr(err.code);
+    btn.textContent='Sign In'; btn.disabled=false; document.getElementById('loading').style.display='none';
   }
 };
 
@@ -962,7 +1012,7 @@ window.handleRegister = async e => {
   const pw=document.getElementById('rg-pw').value, cpw=document.getElementById('rg-cpw').value;
   if(pw!==cpw){document.getElementById('rg-err').textContent='Passwords do not match';return}
   if(pw.length<8){document.getElementById('rg-err').textContent='Password must be at least 8 characters';return}
-  const btn=document.getElementById('rg-btn'); btn.textContent='Creating...'; btn.disabled=true;
+  const btn=document.getElementById('rg-btn'); btn.textContent='Creating...'; btn.disabled=true; document.getElementById('loading').style.display='flex';
   document.getElementById('rg-err').textContent='';
   try {
     const cred = await createUserWithEmailAndPassword(auth,email,pw);
@@ -971,8 +1021,11 @@ window.handleRegister = async e => {
     document.getElementById('reg-form').style.display='none';
     document.getElementById('rg-success').style.display='block';
   } catch(err) {
-    document.getElementById('rg-err').textContent=authErr(err.code);
-    btn.textContent='Create Account'; btn.disabled=false;
+    console.error('Register error:', err.code, err.message);
+    const errMsg = authErr(err.code);
+    document.getElementById('rg-err').textContent = errMsg;
+    document.getElementById('rg-hint').style.display = (err.code === 'auth/operation-not-allowed' || err.code === 'auth/configuration-not-found' || !err.code) ? 'block' : 'none';
+    btn.textContent='Create Account'; btn.disabled=false; document.getElementById('loading').style.display='none';
   }
 };
 
@@ -985,12 +1038,17 @@ function authErr(code) {
     'auth/user-not-found':'No account found with this email.',
     'auth/wrong-password':'Incorrect password.',
     'auth/invalid-credential':'Invalid email or password.',
-    'auth/too-many-requests':'Too many attempts. Try later.',
-    'auth/email-already-in-use':'Email already registered.',
-    'auth/weak-password':'Password is too weak.',
-    'auth/network-request-failed':'Network error.',
+    'auth/too-many-requests':'Too many attempts. Please try again later.',
+    'auth/email-already-in-use':'This email is already registered. Try signing in.',
+    'auth/weak-password':'Password is too weak. Use at least 6 characters.',
+    'auth/network-request-failed':'Network error. Check your internet connection.',
+    'auth/operation-not-allowed':'Email/password sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in methods.',
+    'auth/configuration-not-found':'Firebase Auth not configured. Enable Email/Password in Firebase Console → Authentication → Sign-in methods.',
+    'auth/invalid-api-key':'Invalid Firebase API key. Check your firebaseConfig.',
+    'auth/project-not-found':'Firebase project not found. Check your projectId.',
+    'auth/unauthorized-domain':'This domain is not authorized. Add it in Firebase Console → Authentication → Settings → Authorized domains.',
   };
-  return m[code]||'An error occurred. Try again.';
+  return m[code] || (code ? `Error: ${code}` : 'An error occurred. Try again.');
 }
 
 // ── App Init ──────────────────────────────────────────
@@ -1203,7 +1261,7 @@ window.doClock = async type => {
   await refreshTodayRec();
 };
 
-function renderAttLog() {
+window.renderAttLog = function renderAttLog() {
   const monthVal=document.getElementById('att-month')?.value;
   if(!monthVal) return;
   const [yr,mo]=monthVal.split('-').map(Number);
@@ -1875,6 +1933,17 @@ function fmtDate(s){if(!s) return '';return new Date(s+'T00:00').toLocaleDateStr
 function fmtDur(m){if(!m) return '—';const h=Math.floor(m/60),mn=m%60;return h>0?`${h}h ${mn}m`:`${mn}m`;}
 function fmtSize(b){if(!b) return '';const k=1024,s=['B','KB','MB','GB'],i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i];}
 function fileIcon(t){if(t.startsWith('image/')) return '🖼️';if(t.includes('pdf')) return '📄';if(t.includes('word')||t.includes('document')) return '📝';if(t.includes('sheet')||t.includes('excel')||t.includes('csv')) return '📊';if(t.startsWith('video/')) return '🎬';if(t.startsWith('audio/')) return '🎵';return '📁';}
+
+// ── DOM Event Bindings (replaces inline onclick/onsubmit) ────
+// Runs after module loads — safely wires up all HTML elements
+document.addEventListener('DOMContentLoaded', () => {
+  // Auth tabs
+  document.getElementById('tab-login')?.addEventListener('click', function(){ window.switchAuthTab('login', this); });
+  document.getElementById('tab-register')?.addEventListener('click', function(){ window.switchAuthTab('register', this); });
+  // Auth forms
+  document.getElementById('login-form')?.addEventListener('submit', e => window.handleLogin(e));
+  document.getElementById('reg-form')?.addEventListener('submit', e => window.handleRegister(e));
+});
 
 window.checkStr = (val,id) => {
   let s=0;if(val.length>=8)s++;if(/[A-Z]/.test(val))s++;if(/[0-9]/.test(val))s++;if(/[^A-Za-z0-9]/.test(val))s++;
